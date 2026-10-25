@@ -29,6 +29,16 @@
   #list div:last-child { border-bottom:0; }
   #list div.on { background:linear-gradient(90deg,var(--accent),var(--accent2)); font-weight:700; }
   .reason { color:var(--text); margin-top:6px; }
+  .tabs { display:flex; gap:8px; margin-bottom:18px; }
+  .tabs button { margin:0; padding:10px; font-size:14px; background:#2a1946; }
+  .tabs button.on { background:linear-gradient(90deg,var(--accent),var(--accent2)); }
+  #board { text-align:left; }
+  .item { background:#150c24; border:1px solid #3b2560; border-radius:12px; padding:12px 14px; margin-bottom:10px; }
+  .item .who { font-size:13px; color:var(--muted); }
+  .item .who b { color:var(--text); }
+  .item .t { font-weight:700; margin:4px 0 2px; }
+  .item .c, .item .r { font-size:13px; color:var(--muted); font-style:italic; }
+  .empty { text-align:center; color:var(--muted); padding:20px 0; }
   .hidden { display:none; }
   .bar { height:12px; background:#150c24; border-radius:99px; overflow:hidden; margin:18px 0 10px; border:1px solid #4a2f78; }
   .bar > div { height:100%; width:0; background:linear-gradient(90deg,var(--accent),var(--accent2)); transition:width .3s; }
@@ -47,10 +57,17 @@
   <h1>Проклинатор 3000</h1>
   <div class="sub">Сертифицированная порча. Побочные эффекты — смех.</div>
 
+  <div class="tabs">
+    <button id="tabCurse" class="on">😈 Проклясть</button>
+    <button id="tabBoard">📜 Доска</button>
+  </div>
   <noscript><p style="color:#f43f5e;font-weight:700">⚠️ Здесь отключён JavaScript, проклятия не заработают. Нажми «Поделиться» → «Открыть в Safari».</p></noscript>
+  <div id="main">
   <div id="form">
     <label for="name">Кого проклинаем?</label>
     <input id="name" type="text" maxlength="40" placeholder="Введи имя жертвы" autocomplete="off">
+    <label for="from">Твоё имя / псевдоним (необязательно)</label>
+    <input id="from" type="text" maxlength="30" placeholder="Если пусто — будет «Аноним»" autocomplete="off">
     <label for="reason">За что? (необязательно)</label>
     <input id="reason" type="text" maxlength="80" placeholder="Например: съел(а) мой йогурт" autocomplete="off">
     <label>Выбери проклятье</label>
@@ -70,8 +87,11 @@
     <div class="reason hidden" id="rReason"></div>
     <div class="curse" id="rCurse"></div>
     <div class="comment" id="rComment"></div>
+    <div class="comment" id="rBoard" style="margin-top:10px"></div>
     <button class="again" id="again">Проклясть ещё кого-нибудь</button>
   </div>
+  </div>
+  <div id="board" class="hidden"></div>
 </div>
 
 <script>
@@ -109,6 +129,32 @@ const MESSAGES = [
   "Почти готово, духи спорят о цене…"
 ];
 
+// Адрес Firebase Realtime Database, например "https://my-proklinator-default-rtdb.europe-west1.firebasedatabase.app".
+// Пока пусто — доска хранится только в этом браузере.
+const DB_URL = "";
+
+const store = {
+  async load() {
+    if (DB_URL) {
+      const r = await fetch(DB_URL + "/curses.json?orderBy=%22t%22&limitToLast=50");
+      const o = (await r.json()) || {};
+      return Object.values(o).sort((a, b) => b.t - a.t);
+    }
+    try { return JSON.parse(localStorage.getItem("curses") || "[]"); } catch (e) { return []; }
+  },
+  async add(item) {
+    if (DB_URL) {
+      await fetch(DB_URL + "/curses.json", { method: "POST", body: JSON.stringify(item) });
+      return;
+    }
+    try {
+      const l = JSON.parse(localStorage.getItem("curses") || "[]");
+      l.unshift(item);
+      localStorage.setItem("curses", JSON.stringify(l.slice(0, 50)));
+    } catch (e) {}
+  }
+};
+
 const $ = id => document.getElementById(id);
 let chosen = 0;
 CURSES.forEach((c, i) => {
@@ -127,6 +173,8 @@ $("go").onclick = () => {
   if (!name) { const n = $("name"); n.classList.remove("shake"); void n.offsetWidth; n.classList.add("shake"); n.focus(); return; }
   const [title, comment] = CURSES[chosen];
   const reason = $("reason").value.trim();
+  const from = $("from").value.trim() || "Аноним";
+  const posted = store.add({ from, to: name, curse: title, comment, reason, t: Date.now() }).then(() => true, () => false);
   $("form").classList.add("hidden");
   $("loading").classList.remove("hidden");
 
@@ -142,6 +190,7 @@ $("go").onclick = () => {
         $("rName").textContent = name;
         $("rReason").textContent = reason ? "Причина: " + reason : "";
         $("rReason").classList.toggle("hidden", !reason);
+        posted.then(ok => { $("rBoard").textContent = ok ? "Проклятье записано на доску 📜" : "Не вышло записать на доску 😢"; });
         $("rCurse").textContent = "«" + title + "»";
         $("rComment").textContent = comment;
         $("result").classList.remove("hidden");
@@ -155,8 +204,45 @@ $("again").onclick = () => {
   $("fill").style.width = "0";
   $("name").value = "";
   $("reason").value = "";
+  $("from").value = "";
   $("form").classList.remove("hidden");
 };
+function fmt(t) {
+  const d = new Date(t);
+  return d.toLocaleDateString("ru-RU", { day: "numeric", month: "short" }) + ", " + d.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+}
+function el(cls, text) { const d = document.createElement("div"); d.className = cls; d.textContent = text; return d; }
+
+async function renderBoard() {
+  const b = $("board");
+  let list;
+  try { list = await store.load(); } catch (e) { b.replaceChildren(el("empty", "Не удалось загрузить доску 😢")); return; }
+  if (!list.length) { b.replaceChildren(el("empty", "Пока ни одного проклятья. Будь первым!")); return; }
+  b.replaceChildren(...list.map(x => {
+    const d = el("item", "");
+    const who = el("who", "");
+    const f = document.createElement("b"); f.textContent = x.from;
+    const t = document.createElement("b"); t.textContent = x.to;
+    who.append(f, " → ", t, " · " + fmt(x.t));
+    d.append(who, el("t", "«" + x.curse + "»"), el("c", x.comment));
+    if (x.reason) d.append(el("r", "Причина: " + x.reason));
+    return d;
+  }));
+}
+
+let poll;
+function show(tab) {
+  const board = tab === "board";
+  $("tabBoard").classList.toggle("on", board);
+  $("tabCurse").classList.toggle("on", !board);
+  $("board").classList.toggle("hidden", !board);
+  $("main").classList.toggle("hidden", board);
+  clearInterval(poll);
+  if (board) { renderBoard(); poll = setInterval(renderBoard, 15000); }
+}
+$("tabBoard").onclick = () => show("board");
+$("tabCurse").onclick = () => show("curse");
+
 $("name").addEventListener("keydown", e => { if (e.key === "Enter") $("go").click(); });
 </script>
 </body>
