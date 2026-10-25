@@ -72,6 +72,12 @@
     <input id="reason" type="text" maxlength="80" placeholder="Например: съел(а) мой йогурт" autocomplete="off">
     <label>Выбери проклятье</label>
     <div id="list"></div>
+    <div id="customBox" class="hidden">
+      <label for="customTitle">Твоё проклятье</label>
+      <input id="customTitle" type="text" maxlength="60" placeholder="Например: вечный дубль в ушах" autocomplete="off">
+      <label for="customComment">Комментарий (необязательно)</label>
+      <input id="customComment" type="text" maxlength="120" placeholder="Пояснение к проклятью" autocomplete="off">
+    </div>
     <button id="go">Проклясть! 😈</button>
   </div>
 
@@ -115,8 +121,15 @@ const CURSES = [
   ["Вечный спойлер", "Все будут рассказывать концовку сериала, который ты ещё не досмотрел."],
   ["Маленькая заноза", "Не видна, не вытащить, зато ощущается при каждом движении."],
   ["Проспать будильник", "Но только в тот день, когда это реально важно."],
-  ["Всегда не та вкладка", "Звук откуда-то орёт, а найти вкладку невозможно. Вечно."]
+  ["Всегда не та вкладка", "Звук откуда-то орёт, а найти вкладку невозможно. Вечно."],
+  ["💛 Зелёные светофоры", "Все светофоры на твоём пути загораются зелёным. Опаздывать станет нечем."],
+  ["💛 Идеальный авокадо", "Всегда спелый. Не каменный и не кашица. Ровно в тот день, когда нужен."],
+  ["💛 Деньги в старой куртке", "Раз в месяц находить в кармане купюру, о которой давно забыл(а)."],
+  ["💛 Тёплый плед и дождь за окном", "Вечер, когда никуда не надо, а под рукой чай и сериал."],
+  ["💛 Любимая песня в нужный момент", "Заходишь в магазин или такси — а там играет именно она."],
+  ["✍️ Придумать своё", ""]
 ];
+const CUSTOM = CURSES.length - 1;
 
 const MESSAGES = [
   "Связываюсь с потусторонним миром…",
@@ -163,6 +176,7 @@ CURSES.forEach((c, i) => {
   if (i === 0) d.className = "on";
   d.onclick = () => {
     chosen = i;
+    $("customBox").classList.toggle("hidden", i !== CUSTOM);
     [...$("list").children].forEach((x, j) => x.className = j === i ? "on" : "");
   };
   $("list").appendChild(d);
@@ -171,7 +185,12 @@ CURSES.forEach((c, i) => {
 $("go").onclick = () => {
   const name = $("name").value.trim();
   if (!name) { const n = $("name"); n.classList.remove("shake"); void n.offsetWidth; n.classList.add("shake"); n.focus(); return; }
-  const [title, comment] = CURSES[chosen];
+  let [title, comment] = CURSES[chosen];
+  if (chosen === CUSTOM) {
+    title = $("customTitle").value.trim();
+    if (!title) { const c = $("customTitle"); c.classList.remove("shake"); void c.offsetWidth; c.classList.add("shake"); c.focus(); return; }
+    comment = $("customComment").value.trim() || "Авторское проклятье, штучная работа.";
+  }
   const reason = $("reason").value.trim();
   const from = $("from").value.trim() || "Аноним";
   const posted = store.add({ from, to: name, curse: title, comment, reason, t: Date.now() }).then(() => true, () => false);
@@ -205,6 +224,8 @@ $("again").onclick = () => {
   $("name").value = "";
   $("reason").value = "";
   $("from").value = "";
+  $("customTitle").value = "";
+  $("customComment").value = "";
   $("form").classList.remove("hidden");
 };
 function fmt(t) {
