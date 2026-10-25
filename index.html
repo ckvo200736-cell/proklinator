@@ -168,6 +168,17 @@ const store = {
   }
 };
 
+const MESSAGES_KIND = [
+  "Собираю лучики солнца…",
+  "Завариваю волшебный чай…",
+  "Договариваюсь с добрыми духами…",
+  "Посыпаю проклятье блёстками…",
+  "Упаковываю удачу в красивую коробочку…",
+  "Грею проклятье в ладошках…",
+  "Отправляю с голубем-курьером…",
+  "Почти готово, духи улыбаются…"
+];
+
 const $ = id => document.getElementById(id);
 let chosen = 0;
 CURSES.forEach((c, i) => {
@@ -197,11 +208,12 @@ $("go").onclick = () => {
   $("form").classList.add("hidden");
   $("loading").classList.remove("hidden");
 
+  const msgs = title.startsWith("💛") ? MESSAGES_KIND : MESSAGES;
   let p = 0;
   const timer = setInterval(() => {
-    p = Math.min(100, p + Math.random() * 9 + 2);
+    p = Math.min(100, p + Math.random() * 5 + 4);
     $("fill").style.width = p + "%";
-    $("status").textContent = MESSAGES[Math.min(MESSAGES.length - 1, Math.floor(p / 100 * MESSAGES.length))];
+    $("status").textContent = msgs[Math.min(msgs.length - 1, Math.floor(p / 100 * msgs.length))];
     if (p >= 100) {
       clearInterval(timer);
       setTimeout(() => {
@@ -215,7 +227,7 @@ $("go").onclick = () => {
         $("result").classList.remove("hidden");
       }, 400);
     }
-  }, 260);
+  }, 400);
 };
 
 $("again").onclick = () => {
