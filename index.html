@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Проклинатор 3000</title>
+<style>
+  :root { --bg:#120a1c; --card:#1e1230; --accent:#a855f7; --accent2:#f43f5e; --text:#f1e8ff; --muted:#9d8bb8; }
+  * { box-sizing: border-box; }
+  body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center; padding:16px;
+    background: radial-gradient(circle at 50% 0%, #2d1650 0%, var(--bg) 60%); color:var(--text);
+    font-family: system-ui, "Segoe UI", sans-serif; }
+  .card { width:100%; max-width:460px; background:var(--card); border:1px solid #3b2560; border-radius:20px;
+    padding:28px 22px; box-shadow:0 0 40px rgba(168,85,247,.25); text-align:center; }
+  .skull { font-size:56px; animation: float 3s ease-in-out infinite; }
+  @keyframes float { 50% { transform: translateY(-8px) rotate(4deg); } }
+  h1 { margin:6px 0 4px; font-size:28px; letter-spacing:1px; }
+  .sub { color:var(--muted); margin-bottom:22px; font-size:14px; }
+  label { display:block; text-align:left; font-size:13px; color:var(--muted); margin:14px 0 6px; }
+  input, select { width:100%; padding:13px 14px; font-size:16px; border-radius:12px; border:1px solid #4a2f78;
+    background:#150c24; color:var(--text); outline:none; }
+  input:focus, select:focus { border-color:var(--accent); }
+  button { width:100%; margin-top:22px; padding:15px; font-size:17px; font-weight:700; color:#fff; cursor:pointer;
+    border:0; border-radius:12px; background:linear-gradient(90deg,var(--accent),var(--accent2)); }
+  button:hover { filter:brightness(1.12); }
+  button:disabled { opacity:.5; cursor:not-allowed; }
+  #list { max-height:240px; overflow-y:auto; border:1px solid #4a2f78; border-radius:12px; background:#150c24; text-align:left; -webkit-overflow-scrolling:touch; }
+  #list div { padding:12px 14px; border-bottom:1px solid #2a1946; cursor:pointer; font-size:15px; }
+  #list div:last-child { border-bottom:0; }
+  #list div.on { background:linear-gradient(90deg,var(--accent),var(--accent2)); font-weight:700; }
+  .reason { color:var(--text); margin-top:6px; }
+  .hidden { display:none; }
+  .bar { height:12px; background:#150c24; border-radius:99px; overflow:hidden; margin:18px 0 10px; border:1px solid #4a2f78; }
+  .bar > div { height:100%; width:0; background:linear-gradient(90deg,var(--accent),var(--accent2)); transition:width .3s; }
+  #status { color:var(--muted); min-height:22px; font-size:14px; }
+  .result h2 { color:var(--accent2); margin:6px 0; }
+  .result .curse { font-size:20px; font-weight:700; margin:10px 0 6px; }
+  .result .comment { color:var(--muted); font-style:italic; }
+  .again { background:#3b2560; margin-top:18px; }
+  .shake { animation: shake .4s; }
+  @keyframes shake { 25% { transform:translateX(-6px);} 75% { transform:translateX(6px);} }
+</style>
+</head>
+<body>
+<div class="card" id="card">
+  <div class="skull">💀</div>
+  <h1>Проклинатор 3000</h1>
+  <div class="sub">Сертифицированная порча. Побочные эффекты — смех.</div>
+
+  <noscript><p style="color:#f43f5e;font-weight:700">⚠️ Здесь отключён JavaScript, проклятия не заработают. Нажми «Поделиться» → «Открыть в Safari».</p></noscript>
+  <div id="form">
+    <label for="name">Кого проклинаем?</label>
+    <input id="name" type="text" maxlength="40" placeholder="Введи имя жертвы" autocomplete="off">
+    <label for="reason">За что? (необязательно)</label>
+    <input id="reason" type="text" maxlength="80" placeholder="Например: съел(а) мой йогурт" autocomplete="off">
+    <label>Выбери проклятье</label>
+    <div id="list"></div>
+    <button id="go">Проклясть! 😈</button>
+  </div>
+
+  <div id="loading" class="hidden">
+    <div class="bar"><div id="fill"></div></div>
+    <div id="status"></div>
+  </div>
+
+  <div id="result" class="result hidden">
+    <div style="font-size:48px">✅</div>
+    <h2>Проклятье отправлено!</h2>
+    <div>Получатель: <b id="rName"></b></div>
+    <div class="reason hidden" id="rReason"></div>
+    <div class="curse" id="rCurse"></div>
+    <div class="comment" id="rComment"></div>
+    <button class="again" id="again">Проклясть ещё кого-нибудь</button>
+  </div>
+</div>
+
+<script>
+const CURSES = [
+  ["Вечный понос", "Каждый поход в гости заканчивается забегом в туалет. Пусть всегда будет рядом хотя бы одна дверь."],
+  ["Бессонница", "Спать хочется всегда — кроме момента, когда ложишься в кровать."],
+  ["Мысли в 3 ночи", "Вспоминать самый неловкий момент из 2011 года ровно в три часа ночи."],
+  ["Вечно разряженный телефон", "Всегда 1%. Зарядка есть у всех, кроме тех, кто рядом."],
+  ["Носок-одиночка", "Каждый носок из пары будет бесследно пропадать. Остальные — тоже."],
+  ["Мизинец vs. тумбочка", "Каждое утро — один незапланированный контакт мизинца с мебелью."],
+  ["Чихание в самый тихий момент", "Желательно на лекции, в тишине, с эхом."],
+  ["Мокрый носок", "Наступить в лужу ровно одним носком. Весь день."],
+  ["Автокорректор-предатель", "Все сообщения будут исправляться на самое неловкое слово."],
+  ["Вечная очередь", "Ты всегда в той очереди, которая движется медленнее всех."],
+  ["Музыкальный червь", "В голове навсегда застрянет «Ламбада». Только припев."],
+  ["Зуд в недоступном месте", "Ровно посередине спины. Там, где не достать."],
+  ["Пустой холодильник", "Открываешь его каждые 5 минут. Там всё равно ничего нового."],
+  ["Скрипучая дверь", "В 2 ночи, когда пытаешься тихо пройти. Каждый раз."],
+  ["Подтекающий пакет", "Сумка с продуктами порвётся ровно у подъезда."],
+  ["Икота на свидании", "Громкая. Ритмичная. Не лечится ни водой, ни испугом."],
+  ["Вечный спойлер", "Все будут рассказывать концовку сериала, который ты ещё не досмотрел."],
+  ["Маленькая заноза", "Не видна, не вытащить, зато ощущается при каждом движении."],
+  ["Проспать будильник", "Но только в тот день, когда это реально важно."],
+  ["Всегда не та вкладка", "Звук откуда-то орёт, а найти вкладку невозможно. Вечно."]
+];
+
+const MESSAGES = [
+  "Связываюсь с потусторонним миром…",
+  "Варю зелье из носков и дедлайнов…",
+  "Ищу адрес жертвы в астрале…",
+  "Будим древних духов (они злые, не выспались)…",
+  "Подключаюсь к демонскому вайфаю…",
+  "Заряжаю проклятье на 99%…",
+  "Отправляю сову с уведомлением…",
+  "Почти готово, духи спорят о цене…"
+];
+
+const $ = id => document.getElementById(id);
+let chosen = 0;
+CURSES.forEach((c, i) => {
+  const d = document.createElement("div");
+  d.textContent = c[0];
+  if (i === 0) d.className = "on";
+  d.onclick = () => {
+    chosen = i;
+    [...$("list").children].forEach((x, j) => x.className = j === i ? "on" : "");
+  };
+  $("list").appendChild(d);
+});
+
+$("go").onclick = () => {
+  const name = $("name").value.trim();
+  if (!name) { const n = $("name"); n.classList.remove("shake"); void n.offsetWidth; n.classList.add("shake"); n.focus(); return; }
+  const [title, comment] = CURSES[chosen];
+  const reason = $("reason").value.trim();
+  $("form").classList.add("hidden");
+  $("loading").classList.remove("hidden");
+
+  let p = 0;
+  const timer = setInterval(() => {
+    p = Math.min(100, p + Math.random() * 9 + 2);
+    $("fill").style.width = p + "%";
+    $("status").textContent = MESSAGES[Math.min(MESSAGES.length - 1, Math.floor(p / 100 * MESSAGES.length))];
+    if (p >= 100) {
+      clearInterval(timer);
+      setTimeout(() => {
+        $("loading").classList.add("hidden");
+        $("rName").textContent = name;
+        $("rReason").textContent = reason ? "Причина: " + reason : "";
+        $("rReason").classList.toggle("hidden", !reason);
+        $("rCurse").textContent = "«" + title + "»";
+        $("rComment").textContent = comment;
+        $("result").classList.remove("hidden");
+      }, 400);
+    }
+  }, 260);
+};
+
+$("again").onclick = () => {
+  $("result").classList.add("hidden");
+  $("fill").style.width = "0";
+  $("name").value = "";
+  $("reason").value = "";
+  $("form").classList.remove("hidden");
+};
+$("name").addEventListener("keydown", e => { if (e.key === "Enter") $("go").click(); });
+</script>
+</body>
+</html>
